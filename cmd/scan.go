@@ -20,7 +20,13 @@
 
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"log"
+	"sync"
+
+	"github.com/olsio/fsc/storage"
+	"github.com/spf13/cobra"
+)
 
 // scanCmd represents the scan command
 var scanCmd = &cobra.Command{
@@ -33,7 +39,11 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
+		store, _ := storage.NewFileStore(args[0])
+		var wg sync.WaitGroup
+		wg.Add(36)
+		go pool(&wg, 36, store)
+		wg.Wait()
 	},
 }
 
@@ -49,4 +59,29 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// scanCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func worker(worker int, tasksCh <-chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		ip, ok := <-tasksCh
+		if !ok {
+			return
+		}
+		log.Printf("processing=%v on %v", ip, worker)
+	}
+}
+
+func pool(wg *sync.WaitGroup, workers int, store *storage.FileStore) {
+	tasksCh := make(chan string)
+
+	for i := 0; i < workers; i++ {
+		go worker(i, tasksCh, wg)
+	}
+
+	for ip := range store.ReadIPs() {
+		tasksCh <- ip
+	}
+
+	close(tasksCh)
 }

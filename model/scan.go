@@ -18,59 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package storage
+package model
 
-import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-
-	"github.com/olsio/fsc/model"
-)
-
-// FileStore is an abstraction layer for file access
-type FileStore struct {
-	inputFile *os.File
+type Scan struct {
+	IP             string  `json:"ip"`
+	Domain         string  `json:"domain,omitempty"`
+	Time           string  `json:"timestamp"`
+	Data           *Data   `json:"data,omitempty"`
+	Error          *string `json:"error,omitempty"`
+	ErrorComponent string  `json:"error_component,omitempty"`
 }
 
-func NewFileStore(inputFile string) (*FileStore, error) {
-	file, err := os.Open("./result.json")
-	return &FileStore{file}, err
-}
-
-func (fileStore *FileStore) ReadIPs() <-chan string {
-	out := make(chan string)
-	go func() {
-		scanner := bufio.NewScanner(fileStore.inputFile)
-		for scanner.Scan() {
-			var scan model.Scan
-
-			jsonBlob := scanner.Bytes()
-			err := json.Unmarshal(jsonBlob, &scan)
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-
-			if !isRouter(scan.Data.Banner) {
-				continue
-			}
-			out <- scan.IP
-		}
-		close(out)
-	}()
-	return out
-}
-
-var routers = []string{"tp-link", "linksys", "zyxel", "speedport", "tplink", "seagate", "trendnet", "netgear", "dlink", "d-link", "asus"}
-
-func isRouter(banner string) bool {
-	lowerBanner := strings.ToLower(banner)
-	for _, router := range routers {
-		if strings.Contains(lowerBanner, router) {
-			return true
-		}
-	}
-	return false
+type Data struct {
+	Banner string `json:"banner,omitempty"`
 }
